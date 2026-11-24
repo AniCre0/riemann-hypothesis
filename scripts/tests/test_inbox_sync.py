@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 import subprocess
 import unittest
+from unittest.mock import patch
 
 SCRIPT = Path(__file__).resolve().parents[1] / "inbox-sync.py"
 spec = importlib.util.spec_from_file_location("inbox_sync", SCRIPT)
@@ -372,6 +373,14 @@ class Failures(unittest.TestCase):
         gh = Fake([node(1)], label=False)
         with self.assertRaises(inbox.Refused):
             sweep(gh)
+        self.assertEqual(gh.writes, [])
+
+    def test_transient_label_lookup_failure_is_not_cached_as_success(self):
+        gh = Fake([node(1), node(2)], label=False)
+        with patch.object(gh, "label_exists", side_effect=[RuntimeError("temporary API failure"), False]) as lookup:
+            with self.assertRaises(inbox.Refused):
+                sweep(gh)
+        self.assertEqual(lookup.call_count, 2)
         self.assertEqual(gh.writes, [])
 
     def test_missing_label_is_reported_by_a_dry_run(self):

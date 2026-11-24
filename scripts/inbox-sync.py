@@ -304,11 +304,11 @@ def sync(gh, number=None):
         nonlocal checked
         if checked:
             return
-        checked = True
         if not gh.label_exists():
             if not gh.dry_run:
                 raise Refused(f"There is no `{INBOX}` label in {gh.repo}. Was it renamed?")
             log.append(f"there is no `{INBOX}` label yet, so a real run would stop here")
+        checked = True
 
     if number is None:
         pulls = gh.pulls()
