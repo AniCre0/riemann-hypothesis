@@ -523,14 +523,20 @@ def hold(gh, batch, pulls, held, log):
     moved = note.get("head") != batch["sha"]
     checked = {} if moved else dict(note.get("checked") or {})
     if moved and found and contains(gh, batch["sha"], note.get("head")) is not True:
+        removed = []
         for key, commit in sorted(found.items(), key=lambda item: int(item[0])):
             if gh.short():
                 # The note keeps the old head, so the next run checks again.
                 log.append(f"only {gh.remaining} requests left this hour: stopped looking through the batch "
                            f"#{number}, and the next run carries on")
                 return requeued
-            if contains(gh, batch["sha"], commit) is not False:
-                continue
+            inside = contains(gh, batch["sha"], commit)
+            if inside is None:
+                log.append(f"could not check whether #{key} is still in batch #{number}: the next run checks again")
+                return requeued
+            if not inside:
+                removed.append(key)
+        for key in removed:
             del found[key]
             pr = pulls.get(int(key))
             if pr and BUILDING in pr["labels"] and not held.get(key, set()) - {number}:

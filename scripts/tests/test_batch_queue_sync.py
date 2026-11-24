@@ -8,6 +8,7 @@ import io
 from pathlib import Path
 import re
 import unittest
+from unittest.mock import patch
 
 SCRIPT = Path(__file__).resolve().parents[1] / "batch-queue-sync.py"
 spec = importlib.util.spec_from_file_location("batch_queue_sync", SCRIPT)
@@ -909,6 +910,28 @@ class FrozenByHand(unittest.TestCase):
         self.assertIn("#11 is no longer in the batch #1018: `batch queue` again", log)
         self.assertIn("In this batch: #12, #13.", gh.said(1018)[0])
         self.assertEqual(len(gh.said(1018)), 1)  # the same comment, brought up to date
+
+    def test_an_unavailable_comparison_does_not_finalize_a_rebuilt_batch(self):
+        gh = self.frozen()
+        sync(gh)
+        old_record = gh.said(1018)
+        by_hand(gh, 13, name="kim-again")
+        missing = f"compare/{gh.refs[HAND]}...{sha('head12')}?per_page=1"
+        call = gh.call
+
+        def unavailable(method, path, payload=None):
+            if method == "GET" and path == missing:
+                return 503, None
+            return call(method, path, payload)
+
+        with patch.object(gh, "call", side_effect=unavailable):
+            sync(gh)
+        self.assertEqual(gh.said(1018), old_record)
+        self.assertEqual([gh.pulls[n]["labels"] for n in (11, 12)], [{BUILDING}, {BUILDING}])
+
+        sync(gh)
+        self.assertEqual([gh.pulls[n]["labels"] for n in (11, 12, 13)], [{QUEUED}, {QUEUED}, {BUILDING}])
+        self.assertIn("In this batch: #13.", gh.said(1018)[0])
 
     def test_commits_pushed_on_top_need_no_second_look_at_what_it_contained(self):
         gh = self.frozen()
