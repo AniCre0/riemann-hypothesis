@@ -189,6 +189,8 @@ def imports(contents):
         kept, at = [], 0
         while at < len(raw):
             if raw.startswith("/-", at):
+                if not depth:
+                    kept.append(" ")
                 depth, at = depth + 1, at + 2
             elif depth and raw.startswith("-/", at):
                 depth, at = depth - 1, at + 2

@@ -252,6 +252,11 @@ class DeletedImports(unittest.TestCase):
         result = self.check(self.branch("new-file", self.write("New.lean", "import Sub₂.Gone\n\ntheorem new : True := gone\n")))
         self.assertEqual((result.kind, result.stale), ("apart", [("ours", self.GONE, self.NEW)]))
 
+    def test_block_comment_between_import_tokens_preserves_the_conflict(self):
+        result = self.check(self.branch("commented-import", self.write(
+            "New.lean", "module\npublic/- outer /- nested -/ -/import Sub₂.Gone\n")))
+        self.assertEqual((result.kind, result.stale), ("apart", [("ours", self.GONE, self.NEW)]))
+
     def test_new_import_in_an_existing_file_is_reported(self):
         result = self.check(self.branch("new-import", self.write("Kept.lean", "import Sub₂.Gone\n\ntheorem kept : True := gone\n")))
         self.assertEqual(result.stale, [("ours", self.GONE, b"src/Kept.lean")])
