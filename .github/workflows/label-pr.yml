@@ -44,7 +44,14 @@ jobs:
           HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
           git init -q pr
-          git -C pr fetch -q --no-tags --filter=blob:none "https://github.com/$GITHUB_REPOSITORY" "$BASE" "$HEAD"
+          # A synchronize event can arrive before the new head is fetchable by SHA.
+          for delay in 5 15 0; do
+            if git -C pr fetch -q --no-tags --filter=blob:none "https://github.com/$GITHUB_REPOSITORY" "$BASE" "$HEAD"; then
+              break
+            fi
+            if (( delay == 0 )); then exit 1; fi
+            sleep "$delay"
+          done
           git -C pr diff -z --name-only --no-renames "$BASE...$HEAD" > changed
 
           lake='' challenge='' ci='' docs=''
